@@ -1,0 +1,8 @@
+*.pyc
+gentle/
+*_frames/
+*_g.txt
+*_schedule.csv
+*.json
+*.mp4
+__pycache__/

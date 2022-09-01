@@ -1,4 +1,0 @@
-gentle (not a Python library)
-ffmpeg (not a Python library)
-json (you probably already have this)
-subprocess (you probably already have this)
