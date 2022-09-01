@@ -1,5 +1,4 @@
 import argparse
-from fractions import Fraction
 import os.path
 import numpy as np
 from PIL import Image, ImageDraw
@@ -10,10 +9,7 @@ from time import time
 
 FRAME_START_RENDER_AT = 0
 PRINT_EVERY = 10
-FRAME_RATE = 24
 PARTS_COUNT = 5
-W_W = 1920
-W_H = 1080
 W_M = 20
 EMOTION_POSITIVITY = [1, 1, 0, 0, 0, 1]
 POSE_COUNT = 30
@@ -53,10 +49,11 @@ def drawFrame(
     else:
         frame = Image.open(f"assets/bg/bga{str(paragraph % BACKGROUND_COUNT)}.png")
         CACHES[0] = [paragraph, frame]
+    if (W_W, W_H) != frame.size:
+        frame = frame.resize((W_W, W_H), Image.Resampling.LANCZOS)
     frame = Image.eval(
         frame, lambda x: int(256 - (256 - x) / 2)
     )  # Makes the entire background image move 50% closer to white. In other words, it's paler.
-
     scribble = None
     if USE_BILLBOARDS:
         FILENAME = (
@@ -146,18 +143,24 @@ def drawFrame(
     )
 
     ow, oh = body.size
+    if oh != W_H:
+        factor = W_H / oh
+        body = body.resize(
+            (int(ow * factor), int(oh * factor)), Image.Resampling.LANCZOS
+        )
+        ow, oh = body.size
     nh = oh * jiggleFactor
     nw = ow / jiggleFactor
     inh = int(round(nh))
     inw = int(round(nw))
     inx = int(round(W_W * 0.75 - nw / 2))
+
     if inx < 300:
         inx -= 50
     else:
         inx += 50
     iny = int(round(W_H - nh))
     body = body.resize((inw, inh), Image.Resampling.LANCZOS)
-
     if FLIPPED:
         body = body.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
     frame.paste(body, (inx - s_X, iny), body)
@@ -310,33 +313,8 @@ def getPhonemes(SIMP, schedules, FRAME_COUNT):
     return phonemesPerFrame
 
 
-def main():
+def main(INPUT_FILE, USE_BILLBOARDS, ENABLE_JIGGLING, ENABLE_FRAME_CACHING, SIMP):
     startDraw = time()
-    parser = argparse.ArgumentParser(description="blah")
-    parser.add_argument(
-        "--input_file", "-i", type=str, help="Script Asset (No File Extesion)"
-    )
-    parser.add_argument(
-        "--use_billboards", "-b", action="store_true", help="Use Billboards"
-    )
-    parser.add_argument(
-        "--jiggly_transitions", "-j", action="store_true", help="Pose Transition Jiggle"
-    )
-    parser.add_argument(
-        "--no_frame_caching",
-        "-n",
-        action="store_false",
-        help="Duplicate Frames that are similar.",
-    )
-    parser.add_argument(
-        "--simple", "-s", action="store_true", help="Simple Style, no phoneme text."
-    )
-    args = parser.parse_args()
-    INPUT_FILE = args.input_file
-    USE_BILLBOARDS = args.use_billboards
-    ENABLE_JIGGLING = args.jiggly_transitions
-    ENABLE_FRAME_CACHING = args.no_frame_caching
-    SIMP = args.simple
 
     with open(f"{INPUT_FILE}_schedule.csv", "r+") as f:
         scheduleLines = f.read().split("\nSECTION\n")
@@ -426,4 +404,39 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="blah")
+    parser.add_argument(
+        "--input_file", "-i", type=str, help="Script Asset (No File Extesion)"
+    )
+    parser.add_argument(
+        "--use_billboards", "-b", action="store_true", help="Use Billboards"
+    )
+    parser.add_argument(
+        "--jiggly_transitions", "-j", action="store_true", help="Pose Transition Jiggle"
+    )
+    parser.add_argument(
+        "--no_frame_caching",
+        "-n",
+        action="store_false",
+        help="Duplicate Frames that are similar.",
+    )
+    parser.add_argument(
+        "--simple", "-s", action="store_true", help="Simple Style, no phoneme text."
+    )
+
+    parser.add_argument(
+        "--framerate", "-r", type=int, default=24, help="Store Framerate."
+    )
+    parser.add_argument(
+        "--framesize", "-x", type=str, default="1920x1080", help="Store Frame size."
+    )
+
+    args = parser.parse_args()
+    INPUT_FILE = args.input_file
+    USE_BILLBOARDS = args.use_billboards
+    ENABLE_JIGGLING = args.jiggly_transitions
+    ENABLE_FRAME_CACHING = args.no_frame_caching
+    SIMP = args.simple
+    FRAME_RATE = args.framerate
+    W_W, W_H = (int(i) for i in args.framesize.split("x"))
+    main(INPUT_FILE, USE_BILLBOARDS, ENABLE_JIGGLING, ENABLE_FRAME_CACHING, SIMP)
